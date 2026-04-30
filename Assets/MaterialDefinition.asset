@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d4830ff8040ac474784de00cb3aee289, type: 3}
   m_Name: MaterialDefinition
   m_EditorClassIdentifier: Assembly-CSharp::InventorySystem.Data.MaterialDefinition
-  id: 
-  displayName: 
-  description: 
-  icon: {fileID: 0}
+  id: 3
+  displayName: asd
+  description: wwww
+  icon: {fileID: 5866165431930342980, guid: 1cc28cbe89c30d3428eab3e85dbe76bc, type: 3}
   category: common

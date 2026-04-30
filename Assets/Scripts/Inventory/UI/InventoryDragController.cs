@@ -113,8 +113,10 @@ namespace InventorySystem.UI
 
         private void MoveDragIcon(Vector2 pointerPanelPos)
         {
-            _dragIcon.style.left = pointerPanelPos.x - 26f;
-            _dragIcon.style.top = pointerPanelPos.y - 26f;
+            var container = _dragIcon.parent;
+            var local = container != null ? container.WorldToLocal(pointerPanelPos) : pointerPanelPos;
+            _dragIcon.style.left = local.x - 26f;
+            _dragIcon.style.top = local.y - 26f;
         }
 
         private void CompleteDrop(Vector2 pointerPanelPos)

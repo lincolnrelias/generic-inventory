@@ -13,6 +13,7 @@ namespace InventorySystem.UI
         private readonly Label _titleLabel;
         private readonly Label _descriptionLabel;
         private readonly Func<IInventoryItem, string> _tooltipBuilder;
+        private readonly Vector2 _tooltipOffset;
 
         public InventoryTooltipController(
             InventoryService service,
@@ -20,7 +21,8 @@ namespace InventorySystem.UI
             VisualElement tooltipPanel,
             Label titleLabel,
             Label descriptionLabel,
-            Func<IInventoryItem, string> tooltipBuilder)
+            Func<IInventoryItem, string> tooltipBuilder,
+            Vector2 tooltipOffset)
         {
             _service = service ?? throw new ArgumentNullException(nameof(service));
             _presenter = presenter ?? throw new ArgumentNullException(nameof(presenter));
@@ -28,6 +30,7 @@ namespace InventorySystem.UI
             _titleLabel = titleLabel ?? throw new ArgumentNullException(nameof(titleLabel));
             _descriptionLabel = descriptionLabel ?? throw new ArgumentNullException(nameof(descriptionLabel));
             _tooltipBuilder = tooltipBuilder ?? throw new ArgumentNullException(nameof(tooltipBuilder));
+            _tooltipOffset = tooltipOffset;
 
             foreach (var slot in _presenter.SlotElements)
             {
@@ -62,8 +65,8 @@ namespace InventorySystem.UI
 
             _titleLabel.text = item.DisplayName;
             _descriptionLabel.text = _tooltipBuilder(item);
-            _tooltipPanel.style.left = evt.position.x + 16f;
-            _tooltipPanel.style.top = evt.position.y + 16f;
+            _tooltipPanel.style.left = evt.position.x + _tooltipOffset.x;
+            _tooltipPanel.style.top = evt.position.y + _tooltipOffset.y;
             _tooltipPanel.RemoveFromClassList("hidden");
         }
 

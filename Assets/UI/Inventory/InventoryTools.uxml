@@ -1,0 +1,10 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:VisualElement name="interaction-panel" class="interaction-panel">
+        <ui:Label text="Inventory Tools" class="interaction-title" />
+        <ui:Button name="tool-add-material" text="Add Material" />
+        <ui:Button name="tool-add-equipment" text="Add Equipment" />
+        <ui:Button name="tool-remove-last" text="Remove Last" />
+        <ui:Button name="tool-fill-random" text="Fill Random" />
+        <ui:Button name="tool-clear-all" text="Clear All" />
+    </ui:VisualElement>
+</ui:UXML>

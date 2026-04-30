@@ -1,21 +1,15 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
     <Style src="project://database/Assets/UI/Inventory/InventoryView.uss?fileID=7433441132597879392&amp;guid=13611489d790c3d49a190b48d523ae8d&amp;type=3#InventoryView"/>
     <ui:VisualElement name="inventory-root" class="inventory-root">
-        <ui:VisualElement name="inventory-grid" class="inventory-grid"/>
-        <ui:VisualElement name="drag-layer" class="drag-layer">
-            <ui:VisualElement name="drag-icon" class="drag-icon hidden"/>
-        </ui:VisualElement>
-        <ui:VisualElement name="tooltip-panel" class="tooltip-panel hidden">
-            <ui:Label name="tooltip-title" text="Item" class="tooltip-title"/>
-            <ui:Label name="tooltip-description" text="" class="tooltip-description"/>
-        </ui:VisualElement>
-        <ui:VisualElement name="interaction-panel" class="interaction-panel">
-            <ui:Label text="Inventory Tools" class="interaction-title" />
-            <ui:Button name="tool-add-material" text="Add Material" />
-            <ui:Button name="tool-add-equipment" text="Add Equipment" />
-            <ui:Button name="tool-remove-last" text="Remove Last" />
-            <ui:Button name="tool-fill-random" text="Fill Random" />
-            <ui:Button name="tool-clear-all" text="Clear All" />
+        <ui:VisualElement name="inventory-frame" class="inventory-frame">
+            <ui:VisualElement name="inventory-grid" class="inventory-grid"/>
+            <ui:VisualElement name="drag-layer" class="drag-layer">
+                <ui:VisualElement name="drag-icon" class="drag-icon hidden"/>
+            </ui:VisualElement>
+            <ui:VisualElement name="tooltip-panel" class="tooltip-panel hidden">
+                <ui:Label name="tooltip-title" text="Item" class="tooltip-title"/>
+                <ui:Label name="tooltip-description" text="" class="tooltip-description"/>
+            </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

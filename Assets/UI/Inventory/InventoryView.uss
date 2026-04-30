@@ -1,8 +1,68 @@
 .inventory-root {
     flex-grow: 1;
+    width: 100%;
+    height: 100%;
     position: relative;
-    align-items: flex-start;
+    align-items: center;
+    justify-content: center;
+    padding-top: 12px;
+    padding-right: 12px;
+    padding-bottom: 12px;
+    padding-left: 12px;
+}
+
+.inventory-root.anchor-top-left {
     justify-content: flex-start;
+    align-items: flex-start;
+}
+
+.inventory-root.anchor-top-center {
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.inventory-root.anchor-top-right {
+    justify-content: flex-start;
+    align-items: flex-end;
+}
+
+.inventory-root.anchor-middle-left {
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.inventory-root.anchor-center {
+    justify-content: center;
+    align-items: center;
+}
+
+.inventory-root.anchor-middle-right {
+    justify-content: center;
+    align-items: flex-end;
+}
+
+.inventory-root.anchor-bottom-left {
+    justify-content: flex-end;
+    align-items: flex-start;
+}
+
+.inventory-root.anchor-bottom-center {
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.inventory-root.anchor-bottom-right {
+    justify-content: flex-end;
+    align-items: flex-end;
+}
+
+.inventory-frame {
+    position: relative;
+    padding-top: 8px;
+    padding-right: 8px;
+    padding-bottom: 8px;
+    padding-left: 8px;
+    min-width: 320px;
 }
 
 .inventory-grid {
@@ -21,17 +81,8 @@
     border-right-width: 1px;
     border-bottom-width: 1px;
     border-left-width: 1px;
-    border-top-color: rgba(255, 255, 255, 0.2);
-    border-right-color: rgba(255, 255, 255, 0.2);
-    border-bottom-color: rgba(255, 255, 255, 0.2);
-    border-left-color: rgba(255, 255, 255, 0.2);
-    background-color: rgba(0, 0, 0, 0.35);
     align-items: center;
     justify-content: center;
-}
-
-.inventory-slot:hover {
-    background-color: rgba(255, 255, 255, 0.1);
 }
 
 .inventory-item-icon {
@@ -40,13 +91,10 @@
     unity-background-scale-mode: scale-to-fit;
     align-items: center;
     justify-content: center;
-    background-color: rgba(255, 255, 255, 0.08);
 }
 
 .inventory-item-fallback {
     font-size: 20px;
-    -unity-font-style: bold;
-    color: rgba(255, 255, 255, 0.9);
 }
 
 .dragging {
@@ -82,16 +130,10 @@
     border-right-width: 1px;
     border-bottom-width: 1px;
     border-left-width: 1px;
-    border-top-color: rgba(255, 255, 255, 0.25);
-    border-right-color: rgba(255, 255, 255, 0.25);
-    border-bottom-color: rgba(255, 255, 255, 0.25);
-    border-left-color: rgba(255, 255, 255, 0.25);
-    background-color: rgba(20, 20, 20, 0.95);
 }
 
 .tooltip-title {
     font-size: 14px;
-    -unity-font-style: bold;
     margin-bottom: 4px;
 }
 
@@ -106,8 +148,8 @@
 
 .interaction-panel {
     position: absolute;
-    right: 10px;
-    top: 10px;
+    right: 8px;
+    top: 8px;
     width: 170px;
     padding-top: 8px;
     padding-right: 8px;
@@ -117,14 +159,8 @@
     border-right-width: 1px;
     border-bottom-width: 1px;
     border-left-width: 1px;
-    border-top-color: rgba(255, 255, 255, 0.2);
-    border-right-color: rgba(255, 255, 255, 0.2);
-    border-bottom-color: rgba(255, 255, 255, 0.2);
-    border-left-color: rgba(255, 255, 255, 0.2);
-    background-color: rgba(20, 20, 20, 0.9);
 }
 
 .interaction-title {
     margin-bottom: 6px;
-    -unity-font-style: bold;
 }

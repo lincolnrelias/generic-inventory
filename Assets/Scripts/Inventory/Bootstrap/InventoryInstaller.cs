@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using InventorySystem.Core;
 using InventorySystem.Data;
 using InventorySystem.UI;
+using InventorySystem.UI.Themes;
 using UnityEngine;
 using UnityEngine.UIElements;
 #if ENABLE_INPUT_SYSTEM
@@ -16,6 +17,9 @@ namespace InventorySystem.Bootstrap
     {
         [SerializeField] private InventoryConfig config;
         [SerializeField] private ItemDefinitionBase[] startupItems;
+        [SerializeField] private InventoryThemeDefinition theme;
+        [SerializeField] private InventoryScreenAnchor screenAnchor = InventoryScreenAnchor.TopLeft;
+        [SerializeField] private VisualTreeAsset inventoryToolsView;
 
         private InventoryService _service;
         private InventoryPresenter _presenter;
@@ -38,14 +42,19 @@ namespace InventorySystem.Bootstrap
 
             var document = GetComponent<UIDocument>();
             var root = document.rootVisualElement;
+            EnsureRootFillsPanel(root);
+            ApplyTheme(root);
+            ApplyAnchor(root);
+            AttachInteractionPanel(root);
 
             _service = new InventoryService(new InventoryGrid(config.Columns, config.Rows));
             CacheStartupItemIcons();
+            var slotSize = theme != null && theme.SlotSizeOverride > 0f ? theme.SlotSizeOverride : config.SlotSize;
             _presenter = new InventoryPresenter(
                 _service,
                 root.Q<VisualElement>("inventory-grid"),
                 config.Columns,
-                config.SlotSize,
+                slotSize,
                 BuildViewModel,
                 ResolveIconTexture);
 
@@ -62,7 +71,8 @@ namespace InventorySystem.Bootstrap
                 root.Q<VisualElement>("tooltip-panel"),
                 root.Q<Label>("tooltip-title"),
                 root.Q<Label>("tooltip-description"),
-                BuildTooltip);
+                BuildTooltip,
+                theme != null ? theme.TooltipOffset : new Vector2(16f, 16f));
 
             _interactionPanelController = new InventoryInteractionPanelController(
                 _service,
@@ -252,6 +262,91 @@ namespace InventorySystem.Bootstrap
 #else
             return Input.GetKeyDown(KeyCode.F3);
 #endif
+        }
+
+        private void ApplyTheme(VisualElement root)
+        {
+            if (root == null || theme == null || theme.StyleSheets == null)
+            {
+                return;
+            }
+
+            var sheets = theme.StyleSheets;
+            for (var i = 0; i < sheets.Length; i++)
+            {
+                var sheet = sheets[i];
+                if (sheet != null && !root.styleSheets.Contains(sheet))
+                {
+                    root.styleSheets.Add(sheet);
+                }
+            }
+        }
+
+        private void ApplyAnchor(VisualElement root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            var inventoryRoot = root.Q<VisualElement>("inventory-root");
+            if (inventoryRoot == null)
+            {
+                return;
+            }
+
+            inventoryRoot.RemoveFromClassList("anchor-top-left");
+            inventoryRoot.RemoveFromClassList("anchor-top-center");
+            inventoryRoot.RemoveFromClassList("anchor-top-right");
+            inventoryRoot.RemoveFromClassList("anchor-middle-left");
+            inventoryRoot.RemoveFromClassList("anchor-center");
+            inventoryRoot.RemoveFromClassList("anchor-middle-right");
+            inventoryRoot.RemoveFromClassList("anchor-bottom-left");
+            inventoryRoot.RemoveFromClassList("anchor-bottom-center");
+            inventoryRoot.RemoveFromClassList("anchor-bottom-right");
+
+            inventoryRoot.AddToClassList(screenAnchor switch
+            {
+                InventoryScreenAnchor.TopLeft => "anchor-top-left",
+                InventoryScreenAnchor.TopCenter => "anchor-top-center",
+                InventoryScreenAnchor.TopRight => "anchor-top-right",
+                InventoryScreenAnchor.MiddleLeft => "anchor-middle-left",
+                InventoryScreenAnchor.Center => "anchor-center",
+                InventoryScreenAnchor.MiddleRight => "anchor-middle-right",
+                InventoryScreenAnchor.BottomLeft => "anchor-bottom-left",
+                InventoryScreenAnchor.BottomCenter => "anchor-bottom-center",
+                InventoryScreenAnchor.BottomRight => "anchor-bottom-right",
+                _ => "anchor-top-left"
+            });
+        }
+
+        private void AttachInteractionPanel(VisualElement root)
+        {
+            if (root == null || inventoryToolsView == null)
+            {
+                return;
+            }
+
+            if (root.Q<VisualElement>("interaction-panel") != null)
+            {
+                return;
+            }
+
+            inventoryToolsView.CloneTree(root);
+        }
+
+        private static void EnsureRootFillsPanel(VisualElement root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            root.style.position = Position.Absolute;
+            root.style.left = 0f;
+            root.style.top = 0f;
+            root.style.right = 0f;
+            root.style.bottom = 0f;
         }
     }
 

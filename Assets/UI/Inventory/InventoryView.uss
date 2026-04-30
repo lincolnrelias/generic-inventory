@@ -73,8 +73,6 @@
     flex-wrap: wrap;
     justify-content: center;
     align-content: flex-start;
-    column-gap: 6px;
-    row-gap: 6px;
 }
 
 .inventory-slot {

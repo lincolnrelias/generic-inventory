@@ -20,6 +20,7 @@ namespace InventorySystem.Bootstrap
         [SerializeField] private InventoryThemeDefinition theme;
         [SerializeField] private InventoryScreenAnchor screenAnchor = InventoryScreenAnchor.TopLeft;
         [SerializeField] private VisualTreeAsset inventoryToolsView;
+        [SerializeField] private float slotGap = 6f;
         [Header("Frame Padding")]
         [SerializeField] private float framePaddingTop = 8f;
         [SerializeField] private float framePaddingRight = 8f;
@@ -56,7 +57,9 @@ namespace InventorySystem.Bootstrap
             _service = new InventoryService(new InventoryGrid(config.Columns, config.Rows));
             CacheStartupItemIcons();
             var slotSize = theme != null && theme.SlotSizeOverride > 0f ? theme.SlotSizeOverride : config.SlotSize;
-            var slotSpacing = 6f;
+            var slotSpacing = theme != null && theme.SlotSpacingOverride >= 0f
+                ? theme.SlotSpacingOverride
+                : Mathf.Max(0f, slotGap);
             _presenter = new InventoryPresenter(
                 _service,
                 root.Q<VisualElement>("inventory-grid"),

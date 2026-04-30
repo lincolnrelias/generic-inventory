@@ -12,6 +12,8 @@ namespace InventorySystem.UI
         private readonly VisualElement _gridRoot;
         private readonly Func<IInventoryItem, ItemViewModel> _viewModelBuilder;
         private readonly Func<IInventoryItem, Texture2D> _iconResolver;
+        private readonly float _slotSpacing;
+        private readonly int _columns;
         private readonly List<VisualElement> _slotElements = new();
 
         public IReadOnlyList<VisualElement> SlotElements => _slotElements;
@@ -29,6 +31,8 @@ namespace InventorySystem.UI
             _gridRoot = gridRoot ?? throw new ArgumentNullException(nameof(gridRoot));
             _viewModelBuilder = viewModelBuilder ?? throw new ArgumentNullException(nameof(viewModelBuilder));
             _iconResolver = iconResolver;
+            _slotSpacing = Mathf.Max(0f, slotSpacing);
+            _columns = Mathf.Max(1, columns);
 
             _gridRoot.style.width = (slotSize * columns) + ((columns - 1) * slotSpacing);
             BuildSlots();
@@ -59,6 +63,10 @@ namespace InventorySystem.UI
                 var slot = new VisualElement();
                 slot.AddToClassList("inventory-slot");
                 slot.userData = i;
+                var x = i % _columns;
+                var y = i / _columns;
+                slot.style.marginRight = x < _columns - 1 ? _slotSpacing : 0f;
+                slot.style.marginBottom = y < _service.Grid.Rows - 1 ? _slotSpacing : 0f;
                 _slotElements.Add(slot);
                 _gridRoot.Add(slot);
             }

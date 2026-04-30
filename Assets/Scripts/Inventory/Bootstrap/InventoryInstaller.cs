@@ -21,6 +21,9 @@ namespace InventorySystem.Bootstrap
         [SerializeField] private InventoryScreenAnchor screenAnchor = InventoryScreenAnchor.TopLeft;
         [SerializeField] private VisualTreeAsset inventoryToolsView;
         [SerializeField] private float slotGap = 6f;
+        [Header("Scale")]
+        [SerializeField] private float frameScale = 1f;
+        [SerializeField] private float slotsContainerScale = 1f;
         [Header("Frame Padding")]
         [SerializeField] private float framePaddingTop = 8f;
         [SerializeField] private float framePaddingRight = 8f;
@@ -53,6 +56,8 @@ namespace InventorySystem.Bootstrap
             ApplyAnchor(root);
             AttachInteractionPanel(root);
             ApplyFramePadding(root);
+            ApplyFrameVisual(root);
+            ApplyScale(root);
 
             _service = new InventoryService(new InventoryGrid(config.Columns, config.Rows));
             CacheStartupItemIcons();
@@ -364,6 +369,47 @@ namespace InventorySystem.Bootstrap
             frame.style.paddingRight = Mathf.Max(0f, framePaddingRight);
             frame.style.paddingBottom = Mathf.Max(0f, framePaddingBottom);
             frame.style.paddingLeft = Mathf.Max(0f, framePaddingLeft);
+        }
+
+        private void ApplyFrameVisual(VisualElement root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            var frame = root.Q<VisualElement>("inventory-frame");
+            if (frame == null || theme == null || theme.FrameTexture == null)
+            {
+                return;
+            }
+
+            frame.style.backgroundImage = new StyleBackground(theme.FrameTexture);
+            frame.style.unityBackgroundScaleMode = theme.FrameScaleMode;
+            frame.style.unityBackgroundImageTintColor = theme.FrameTint;
+            frame.AddToClassList("frame-image-enabled");
+        }
+
+        private void ApplyScale(VisualElement root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            var frame = root.Q<VisualElement>("inventory-frame");
+            if (frame != null)
+            {
+                var clampedFrameScale = Mathf.Max(0.1f, frameScale);
+                frame.style.scale = new StyleScale(new Scale(new Vector2(clampedFrameScale, clampedFrameScale)));
+            }
+
+            var grid = root.Q<VisualElement>("inventory-grid");
+            if (grid != null)
+            {
+                var clampedGridScale = Mathf.Max(0.1f, slotsContainerScale);
+                grid.style.scale = new StyleScale(new Scale(new Vector2(clampedGridScale, clampedGridScale)));
+            }
         }
 
         private void FitFrameToGrid(VisualElement root, float slotSize, float slotSpacing)

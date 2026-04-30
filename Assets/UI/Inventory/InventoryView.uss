@@ -67,6 +67,17 @@
     padding-left: 8px;
 }
 
+.inventory-frame.frame-image-enabled {
+    background-repeat: no-repeat;
+    background-position-x: center;
+    background-position-y: center;
+    background-color: rgba(0, 0, 0, 0);
+    border-top-width: 0;
+    border-right-width: 0;
+    border-bottom-width: 0;
+    border-left-width: 0;
+}
+
 .inventory-grid {
     display: flex;
     flex-direction: row;

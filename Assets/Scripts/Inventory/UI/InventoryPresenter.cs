@@ -21,6 +21,7 @@ namespace InventorySystem.UI
             VisualElement gridRoot,
             int columns,
             float slotSize,
+            float slotSpacing,
             Func<IInventoryItem, ItemViewModel> viewModelBuilder,
             Func<IInventoryItem, Texture2D> iconResolver = null)
         {
@@ -29,7 +30,7 @@ namespace InventorySystem.UI
             _viewModelBuilder = viewModelBuilder ?? throw new ArgumentNullException(nameof(viewModelBuilder));
             _iconResolver = iconResolver;
 
-            _gridRoot.style.width = (slotSize * columns) + ((columns - 1) * 6f);
+            _gridRoot.style.width = (slotSize * columns) + ((columns - 1) * slotSpacing);
             BuildSlots();
             Subscribe();
             RefreshAll();

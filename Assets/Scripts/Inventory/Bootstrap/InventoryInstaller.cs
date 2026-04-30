@@ -20,6 +20,11 @@ namespace InventorySystem.Bootstrap
         [SerializeField] private InventoryThemeDefinition theme;
         [SerializeField] private InventoryScreenAnchor screenAnchor = InventoryScreenAnchor.TopLeft;
         [SerializeField] private VisualTreeAsset inventoryToolsView;
+        [Header("Frame Padding")]
+        [SerializeField] private float framePaddingTop = 8f;
+        [SerializeField] private float framePaddingRight = 8f;
+        [SerializeField] private float framePaddingBottom = 8f;
+        [SerializeField] private float framePaddingLeft = 8f;
 
         private InventoryService _service;
         private InventoryPresenter _presenter;
@@ -46,17 +51,21 @@ namespace InventorySystem.Bootstrap
             ApplyTheme(root);
             ApplyAnchor(root);
             AttachInteractionPanel(root);
+            ApplyFramePadding(root);
 
             _service = new InventoryService(new InventoryGrid(config.Columns, config.Rows));
             CacheStartupItemIcons();
             var slotSize = theme != null && theme.SlotSizeOverride > 0f ? theme.SlotSizeOverride : config.SlotSize;
+            var slotSpacing = 6f;
             _presenter = new InventoryPresenter(
                 _service,
                 root.Q<VisualElement>("inventory-grid"),
                 config.Columns,
                 slotSize,
+                slotSpacing,
                 BuildViewModel,
                 ResolveIconTexture);
+            FitFrameToGrid(root, slotSize, slotSpacing);
 
             _dragController = new InventoryDragController(
                 _service,
@@ -333,6 +342,46 @@ namespace InventorySystem.Bootstrap
             }
 
             inventoryToolsView.CloneTree(root);
+        }
+
+        private void ApplyFramePadding(VisualElement root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            var frame = root.Q<VisualElement>("inventory-frame");
+            if (frame == null)
+            {
+                return;
+            }
+
+            frame.style.paddingTop = Mathf.Max(0f, framePaddingTop);
+            frame.style.paddingRight = Mathf.Max(0f, framePaddingRight);
+            frame.style.paddingBottom = Mathf.Max(0f, framePaddingBottom);
+            frame.style.paddingLeft = Mathf.Max(0f, framePaddingLeft);
+        }
+
+        private void FitFrameToGrid(VisualElement root, float slotSize, float slotSpacing)
+        {
+            if (root == null || config == null)
+            {
+                return;
+            }
+
+            var frame = root.Q<VisualElement>("inventory-frame");
+            if (frame == null)
+            {
+                return;
+            }
+
+            var spacing = Mathf.Max(0f, slotSpacing);
+            var contentWidth = (slotSize * config.Columns) + ((config.Columns - 1) * spacing);
+            var contentHeight = (slotSize * config.Rows) + ((config.Rows - 1) * spacing);
+
+            frame.style.width = contentWidth + Mathf.Max(0f, framePaddingLeft) + Mathf.Max(0f, framePaddingRight);
+            frame.style.height = contentHeight + Mathf.Max(0f, framePaddingTop) + Mathf.Max(0f, framePaddingBottom);
         }
 
         private static void EnsureRootFillsPanel(VisualElement root)

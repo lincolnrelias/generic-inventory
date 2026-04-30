@@ -12,7 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 096beef95a70ae644b64c4fc5f4b37dc, type: 3}
   m_Name: InventoryConfig
   m_EditorClassIdentifier: Assembly-CSharp::InventorySystem.Data.InventoryConfig
-  columns: 6
+  columns: 7
   rows: 5
-  slotSize: 64
+  slotWidth: 70
+  slotHeight: 65
   holdThresholdSeconds: 0.12

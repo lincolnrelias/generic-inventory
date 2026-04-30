@@ -39,14 +39,6 @@
 
 .inventory-item-icon {
     background-color: rgba(31, 20, 48, 0.98);
-    border-top-width: 1px;
-    border-right-width: 1px;
-    border-bottom-width: 1px;
-    border-left-width: 1px;
-    border-top-color: rgba(255, 247, 112, 0.55);
-    border-right-color: rgba(255, 247, 112, 0.55);
-    border-bottom-color: rgba(255, 247, 112, 0.55);
-    border-left-color: rgba(255, 247, 112, 0.55);
 }
 
 .inventory-item-fallback {

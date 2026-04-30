@@ -12,7 +12,13 @@ namespace InventorySystem.UI
         private readonly VisualElement _gridRoot;
         private readonly Func<IInventoryItem, ItemViewModel> _viewModelBuilder;
         private readonly Func<IInventoryItem, Texture2D> _iconResolver;
+        private readonly float _slotWidth;
+        private readonly float _slotHeight;
         private readonly float _slotSpacing;
+        private readonly bool _useSlotBaseColor;
+        private readonly Color _slotBaseColor;
+        private readonly bool _useSlotBorderColor;
+        private readonly Color _slotBorderColor;
         private readonly int _columns;
         private readonly List<VisualElement> _slotElements = new();
 
@@ -22,8 +28,13 @@ namespace InventorySystem.UI
             InventoryService service,
             VisualElement gridRoot,
             int columns,
-            float slotSize,
+            float slotWidth,
+            float slotHeight,
             float slotSpacing,
+            bool useSlotBaseColor,
+            Color slotBaseColor,
+            bool useSlotBorderColor,
+            Color slotBorderColor,
             Func<IInventoryItem, ItemViewModel> viewModelBuilder,
             Func<IInventoryItem, Texture2D> iconResolver = null)
         {
@@ -31,10 +42,16 @@ namespace InventorySystem.UI
             _gridRoot = gridRoot ?? throw new ArgumentNullException(nameof(gridRoot));
             _viewModelBuilder = viewModelBuilder ?? throw new ArgumentNullException(nameof(viewModelBuilder));
             _iconResolver = iconResolver;
+            _slotWidth = Mathf.Max(1f, slotWidth);
+            _slotHeight = Mathf.Max(1f, slotHeight);
             _slotSpacing = Mathf.Max(0f, slotSpacing);
+            _useSlotBaseColor = useSlotBaseColor;
+            _slotBaseColor = slotBaseColor;
+            _useSlotBorderColor = useSlotBorderColor;
+            _slotBorderColor = slotBorderColor;
             _columns = Mathf.Max(1, columns);
 
-            _gridRoot.style.width = (slotSize * columns) + ((columns - 1) * slotSpacing);
+            _gridRoot.style.width = (_slotWidth * columns) + ((columns - 1) * _slotSpacing);
             BuildSlots();
             Subscribe();
             RefreshAll();
@@ -63,6 +80,19 @@ namespace InventorySystem.UI
                 var slot = new VisualElement();
                 slot.AddToClassList("inventory-slot");
                 slot.userData = i;
+                slot.style.width = _slotWidth;
+                slot.style.height = _slotHeight;
+                if (_useSlotBaseColor)
+                {
+                    slot.style.backgroundColor = _slotBaseColor;
+                }
+                if (_useSlotBorderColor)
+                {
+                    slot.style.borderTopColor = _slotBorderColor;
+                    slot.style.borderRightColor = _slotBorderColor;
+                    slot.style.borderBottomColor = _slotBorderColor;
+                    slot.style.borderLeftColor = _slotBorderColor;
+                }
                 var x = i % _columns;
                 var y = i / _columns;
                 slot.style.marginRight = x < _columns - 1 ? _slotSpacing : 0f;

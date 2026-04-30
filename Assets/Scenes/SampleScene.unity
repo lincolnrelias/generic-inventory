@@ -467,9 +467,14 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 0261befa36826134db6cbdc72710faef, type: 2}
   - {fileID: 11400000, guid: e7879d44007deed41a23ce28cf2147c0, type: 2}
   - {fileID: 11400000, guid: 2fd1a72576e98824080160946fa18988, type: 2}
-  theme: {fileID: 11400000, guid: 996296f2df6941d7bd3b34dcc2081809, type: 2}
-  screenAnchor: 8
+  theme: {fileID: 11400000, guid: 9776e564b45247f89f49fcf9b450826f, type: 2}
+  screenAnchor: 4
   inventoryToolsView: {fileID: 9197481963319205126, guid: 6016f85135a4446aa68508b581c2ec56, type: 3}
+  slotGap: 6
+  slotWidth: -1
+  slotHeight: -1
+  frameScale: 1.35
+  slotsContainerScale: 0.55
 --- !u!114 &1002060492
 MonoBehaviour:
   m_ObjectHideFlags: 0

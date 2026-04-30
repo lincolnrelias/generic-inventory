@@ -21,15 +21,11 @@ namespace InventorySystem.Bootstrap
         [SerializeField] private InventoryScreenAnchor screenAnchor = InventoryScreenAnchor.TopLeft;
         [SerializeField] private VisualTreeAsset inventoryToolsView;
         [SerializeField] private float slotGap = 6f;
+        [SerializeField] private float slotWidth = -1f;
+        [SerializeField] private float slotHeight = -1f;
         [Header("Scale")]
-        [SerializeField] private float frameScale = 1f;
+        [SerializeField] private Vector2 frameScale = Vector2.one;
         [SerializeField] private float slotsContainerScale = 1f;
-        [Header("Frame Padding")]
-        [SerializeField] private float framePaddingTop = 8f;
-        [SerializeField] private float framePaddingRight = 8f;
-        [SerializeField] private float framePaddingBottom = 8f;
-        [SerializeField] private float framePaddingLeft = 8f;
-
         private InventoryService _service;
         private InventoryPresenter _presenter;
         private InventoryDragController _dragController;
@@ -37,6 +33,9 @@ namespace InventorySystem.Bootstrap
         private InventoryInteractionPanelController _interactionPanelController;
         private int _runtimeItemCounter;
         private readonly Dictionary<string, Texture2D> _iconByItemId = new();
+        private VisualElement _uiRoot;
+        private Vector2 _appliedFrameScale = new(-1f, -1f);
+        private float _appliedSlotsScale = -1f;
 
         public InventoryService Service => _service;
 
@@ -51,17 +50,20 @@ namespace InventorySystem.Bootstrap
 
             var document = GetComponent<UIDocument>();
             var root = document.rootVisualElement;
+            _uiRoot = root;
             EnsureRootFillsPanel(root);
             ApplyTheme(root);
             ApplyAnchor(root);
             AttachInteractionPanel(root);
-            ApplyFramePadding(root);
             ApplyFrameVisual(root);
             ApplyScale(root);
 
             _service = new InventoryService(new InventoryGrid(config.Columns, config.Rows));
             CacheStartupItemIcons();
-            var slotSize = theme != null && theme.SlotSizeOverride > 0f ? theme.SlotSizeOverride : config.SlotSize;
+            var themedSlotWidth = theme != null && theme.SlotWidthOverride > 0f ? theme.SlotWidthOverride : config.SlotWidth;
+            var themedSlotHeight = theme != null && theme.SlotHeightOverride > 0f ? theme.SlotHeightOverride : config.SlotHeight;
+            var resolvedSlotWidth = slotWidth > 0f ? slotWidth : themedSlotWidth;
+            var resolvedSlotHeight = slotHeight > 0f ? slotHeight : themedSlotHeight;
             var slotSpacing = theme != null && theme.SlotSpacingOverride >= 0f
                 ? theme.SlotSpacingOverride
                 : Mathf.Max(0f, slotGap);
@@ -69,11 +71,15 @@ namespace InventorySystem.Bootstrap
                 _service,
                 root.Q<VisualElement>("inventory-grid"),
                 config.Columns,
-                slotSize,
+                resolvedSlotWidth,
+                resolvedSlotHeight,
                 slotSpacing,
+                theme != null && theme.UseSlotBaseColor,
+                theme != null ? theme.SlotBaseColor : Color.clear,
+                theme != null && theme.UseSlotBorderColor,
+                theme != null ? theme.SlotBorderColor : Color.clear,
                 BuildViewModel,
                 ResolveIconTexture);
-            FitFrameToGrid(root, slotSize, slotSpacing);
 
             _dragController = new InventoryDragController(
                 _service,
@@ -103,6 +109,7 @@ namespace InventorySystem.Bootstrap
         private void Update()
         {
             _dragController?.Tick();
+            TryApplyScaleIfChanged();
 
             if (IsHotkeyPressedAddMaterial())
             {
@@ -126,6 +133,7 @@ namespace InventorySystem.Bootstrap
             _tooltipController?.Dispose();
             _dragController?.Dispose();
             _presenter?.Dispose();
+            _uiRoot = null;
         }
 
         private ItemViewModel BuildViewModel(IInventoryItem item)
@@ -352,25 +360,6 @@ namespace InventorySystem.Bootstrap
             inventoryToolsView.CloneTree(root);
         }
 
-        private void ApplyFramePadding(VisualElement root)
-        {
-            if (root == null)
-            {
-                return;
-            }
-
-            var frame = root.Q<VisualElement>("inventory-frame");
-            if (frame == null)
-            {
-                return;
-            }
-
-            frame.style.paddingTop = Mathf.Max(0f, framePaddingTop);
-            frame.style.paddingRight = Mathf.Max(0f, framePaddingRight);
-            frame.style.paddingBottom = Mathf.Max(0f, framePaddingBottom);
-            frame.style.paddingLeft = Mathf.Max(0f, framePaddingLeft);
-        }
-
         private void ApplyFrameVisual(VisualElement root)
         {
             if (root == null)
@@ -397,40 +386,77 @@ namespace InventorySystem.Bootstrap
                 return;
             }
 
+            var safeFrameScale = ClampScale(frameScale);
+            var safeSlotsScale = ClampScale(slotsContainerScale);
+
             var frame = root.Q<VisualElement>("inventory-frame");
             if (frame != null)
             {
-                var clampedFrameScale = Mathf.Max(0.1f, frameScale);
-                frame.style.scale = new StyleScale(new Scale(new Vector2(clampedFrameScale, clampedFrameScale)));
+                frame.style.scale = new StyleScale(new Scale(safeFrameScale));
             }
 
             var grid = root.Q<VisualElement>("inventory-grid");
             if (grid != null)
             {
-                var clampedGridScale = Mathf.Max(0.1f, slotsContainerScale);
-                grid.style.scale = new StyleScale(new Scale(new Vector2(clampedGridScale, clampedGridScale)));
+                grid.style.scale = new StyleScale(new Scale(new Vector2(safeSlotsScale, safeSlotsScale)));
+            }
+
+            _appliedFrameScale = safeFrameScale;
+            _appliedSlotsScale = safeSlotsScale;
+        }
+
+        public void SetFrameScale(float value)
+        {
+            var safeValue = ClampScale(value);
+            frameScale = new Vector2(safeValue, safeValue);
+            ApplyScale(_uiRoot);
+        }
+
+        public void SetFrameScale(Vector2 value)
+        {
+            frameScale = ClampScale(value);
+            ApplyScale(_uiRoot);
+        }
+
+        public void SetSlotsContainerScale(float value)
+        {
+            slotsContainerScale = ClampScale(value);
+            ApplyScale(_uiRoot);
+        }
+
+        public void SetScales(float frameValue, float slotsValue)
+        {
+            var safeFrameValue = ClampScale(frameValue);
+            frameScale = new Vector2(safeFrameValue, safeFrameValue);
+            slotsContainerScale = ClampScale(slotsValue);
+            ApplyScale(_uiRoot);
+        }
+
+        private void TryApplyScaleIfChanged()
+        {
+            if (_uiRoot == null)
+            {
+                return;
+            }
+
+            var safeFrameScale = ClampScale(frameScale);
+            var safeSlotsScale = ClampScale(slotsContainerScale);
+            if (!Mathf.Approximately(_appliedFrameScale.x, safeFrameScale.x) ||
+                !Mathf.Approximately(_appliedFrameScale.y, safeFrameScale.y) ||
+                !Mathf.Approximately(_appliedSlotsScale, safeSlotsScale))
+            {
+                ApplyScale(_uiRoot);
             }
         }
 
-        private void FitFrameToGrid(VisualElement root, float slotSize, float slotSpacing)
+        private static float ClampScale(float value)
         {
-            if (root == null || config == null)
-            {
-                return;
-            }
+            return Mathf.Clamp(value, 0.1f, 5f);
+        }
 
-            var frame = root.Q<VisualElement>("inventory-frame");
-            if (frame == null)
-            {
-                return;
-            }
-
-            var spacing = Mathf.Max(0f, slotSpacing);
-            var contentWidth = (slotSize * config.Columns) + ((config.Columns - 1) * spacing);
-            var contentHeight = (slotSize * config.Rows) + ((config.Rows - 1) * spacing);
-
-            frame.style.width = contentWidth + Mathf.Max(0f, framePaddingLeft) + Mathf.Max(0f, framePaddingRight);
-            frame.style.height = contentHeight + Mathf.Max(0f, framePaddingTop) + Mathf.Max(0f, framePaddingBottom);
+        private static Vector2 ClampScale(Vector2 value)
+        {
+            return new Vector2(ClampScale(value.x), ClampScale(value.y));
         }
 
         private static void EnsureRootFillsPanel(VisualElement root)

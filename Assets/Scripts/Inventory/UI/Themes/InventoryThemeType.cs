@@ -2,6 +2,7 @@ namespace InventorySystem.UI.Themes
 {
     public enum InventoryThemeType
     {
-        PixelArt = 0
+        PixelArt = 0,
+        Minimalist = 1
     }
 }

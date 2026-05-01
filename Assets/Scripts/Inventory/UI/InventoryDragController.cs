@@ -1,7 +1,8 @@
 using System;
 using InventorySystem.Core;
 using UnityEngine;
-using UnityEngine.UIElements;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
@@ -12,26 +13,26 @@ namespace InventorySystem.UI
     {
         private readonly InventoryService _service;
         private readonly InventoryPresenter _presenter;
-        private readonly VisualElement _root;
-        private readonly VisualElement _dragIcon;
+        private readonly Canvas _canvas;
+        private readonly Image _dragIcon;
         private readonly float _holdThreshold;
 
         private bool _isPressing;
         private bool _isDragging;
         private float _pressStartTime;
         private int _sourceSlotIndex = -1;
-        private VisualElement _sourceIcon;
+        private InventorySlotView _sourceSlot;
 
         public InventoryDragController(
             InventoryService service,
             InventoryPresenter presenter,
-            VisualElement root,
-            VisualElement dragIcon,
+            Canvas canvas,
+            Image dragIcon,
             float holdThreshold)
         {
             _service = service ?? throw new ArgumentNullException(nameof(service));
             _presenter = presenter ?? throw new ArgumentNullException(nameof(presenter));
-            _root = root ?? throw new ArgumentNullException(nameof(root));
+            _canvas = canvas ?? throw new ArgumentNullException(nameof(canvas));
             _dragIcon = dragIcon ?? throw new ArgumentNullException(nameof(dragIcon));
             _holdThreshold = Mathf.Max(0f, holdThreshold);
         }
@@ -91,7 +92,7 @@ namespace InventorySystem.UI
             _isPressing = true;
             _pressStartTime = Time.unscaledTime;
             _sourceSlotIndex = slotIndex;
-            _sourceIcon = _presenter.SlotElements[slotIndex].Q(className: "inventory-item-icon");
+            _sourceSlot = _presenter.SlotElements[slotIndex];
         }
 
         private void StartDrag(Vector2 pointerPanelPos)
@@ -102,21 +103,28 @@ namespace InventorySystem.UI
             }
 
             _isDragging = true;
-            _dragIcon.RemoveFromClassList("hidden");
+            _dragIcon.enabled = true;
             MoveDragIcon(pointerPanelPos);
-            if (_sourceIcon != null)
+            if (_sourceSlot != null && _sourceSlot.IconImage != null)
             {
-                _sourceIcon.AddToClassList("dragging");
-                _dragIcon.style.backgroundImage = _sourceIcon.style.backgroundImage;
+                _sourceSlot.IconImage.color = new Color(1f, 1f, 1f, 0.35f);
+                _dragIcon.sprite = _sourceSlot.DragGhostSprite;
             }
         }
 
         private void MoveDragIcon(Vector2 pointerPanelPos)
         {
-            var container = _dragIcon.parent;
-            var local = container != null ? container.WorldToLocal(pointerPanelPos) : pointerPanelPos;
-            _dragIcon.style.left = local.x - 26f;
-            _dragIcon.style.top = local.y - 26f;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    _canvas.transform as RectTransform,
+                    pointerPanelPos,
+                    _canvas.worldCamera,
+                    out var local))
+            {
+                return;
+            }
+
+            var dragRect = _dragIcon.rectTransform;
+            dragRect.anchoredPosition = local;
         }
 
         private void CompleteDrop(Vector2 pointerPanelPos)
@@ -144,14 +152,14 @@ namespace InventorySystem.UI
 
         private void EndDrag()
         {
-            if (_sourceIcon != null)
+            if (_sourceSlot != null && _sourceSlot.IconImage != null)
             {
-                _sourceIcon.RemoveFromClassList("dragging");
+                _sourceSlot.IconImage.color = Color.white;
             }
 
-            _dragIcon.AddToClassList("hidden");
-            _dragIcon.style.backgroundImage = StyleKeyword.None;
-            _sourceIcon = null;
+            _dragIcon.enabled = false;
+            _dragIcon.sprite = null;
+            _sourceSlot = null;
             _sourceSlotIndex = -1;
             _isPressing = false;
             _isDragging = false;
@@ -177,13 +185,7 @@ namespace InventorySystem.UI
 
         private Vector2 ToPanelPosition(Vector2 screenPos)
         {
-            if (_root.panel == null)
-            {
-                return Vector2.zero;
-            }
-
-            var flipped = new Vector2(screenPos.x, Screen.height - screenPos.y);
-            return RuntimePanelUtils.ScreenToPanel(_root.panel, flipped);
+            return screenPos;
         }
 
         private bool TryGetSlotAt(Vector2 pointerPanelPos, out int slotIndex)
@@ -191,7 +193,9 @@ namespace InventorySystem.UI
             slotIndex = -1;
             for (var i = 0; i < _presenter.SlotElements.Count; i++)
             {
-                if (_presenter.SlotElements[i].worldBound.Contains(pointerPanelPos))
+                var slotRect = _presenter.SlotElements[i].RectTransform;
+                if (slotRect != null &&
+                    RectTransformUtility.RectangleContainsScreenPoint(slotRect, pointerPanelPos, _canvas.worldCamera))
                 {
                     slotIndex = i;
                     return true;

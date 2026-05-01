@@ -3,105 +3,125 @@ using System.Collections.Generic;
 using InventorySystem.Core;
 using InventorySystem.Data;
 using InventorySystem.UI;
-using InventorySystem.UI.Themes;
+using TMPro;
 using UnityEngine;
-using UnityEngine.UIElements;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
 
 namespace InventorySystem.Bootstrap
 {
-    [RequireComponent(typeof(UIDocument))]
     public sealed class InventoryInstaller : MonoBehaviour
     {
-        [SerializeField] private InventoryConfig config;
         [SerializeField] private ItemDefinitionBase[] startupItems;
-        [SerializeField] private InventoryThemeDefinition theme;
-        [SerializeField] private InventoryScreenAnchor screenAnchor = InventoryScreenAnchor.TopLeft;
-        [SerializeField] private VisualTreeAsset inventoryToolsView;
-        [SerializeField] private float slotGap = 6f;
-        [SerializeField] private float slotWidth = -1f;
-        [SerializeField] private float slotHeight = -1f;
-        [Header("Scale")]
-        [SerializeField] private Vector2 frameScale = Vector2.one;
-        [SerializeField] private float slotsContainerScale = 1f;
+        [Header("Editor UI References")]
+        [SerializeField] private Canvas canvas;
+        [SerializeField] private RectTransform gridRoot;
+        [SerializeField] private InventoryGridLayoutController gridController;
+        [SerializeField] private Image dragIcon;
+        [SerializeField] private RectTransform tooltipPanel;
+        [SerializeField] private TextMeshProUGUI tooltipTitle;
+        [SerializeField] private TextMeshProUGUI tooltipDescription;
+        [Header("Debug Tools")]
+        [SerializeField] private bool showDebugTools = true;
+
         private InventoryService _service;
         private InventoryPresenter _presenter;
         private InventoryDragController _dragController;
         private InventoryTooltipController _tooltipController;
         private InventoryInteractionPanelController _interactionPanelController;
+        private GameObject _debugToolsRoot;
+        private RectTransform _debugToolsRect;
         private int _runtimeItemCounter;
         private readonly Dictionary<string, Texture2D> _iconByItemId = new();
-        private VisualElement _uiRoot;
-        private Vector2 _appliedFrameScale = new(-1f, -1f);
-        private float _appliedSlotsScale = -1f;
 
         public InventoryService Service => _service;
 
+#if UNITY_EDITOR
+        [ContextMenu("Populate Slots")]
+        private void PopulateSlotsFromInstaller()
+        {
+            if (gridController == null)
+            {
+                Debug.LogError("InventoryInstaller: gridController is not assigned.");
+                return;
+            }
+
+            gridController.PopulateSlots();
+        }
+
+        [ContextMenu("Clear Generated Slots")]
+        private void ClearGeneratedSlotsFromInstaller()
+        {
+            if (gridController == null)
+            {
+                Debug.LogError("InventoryInstaller: gridController is not assigned.");
+                return;
+            }
+
+            gridController.ClearGeneratedSlots();
+        }
+#endif
+
         private void Awake()
         {
-            if (config == null)
+            EnsureEventSystem();
+            if (!ValidateReferences())
             {
-                Debug.LogError("InventoryConfig is required.");
                 enabled = false;
                 return;
             }
 
-            var document = GetComponent<UIDocument>();
-            var root = document.rootVisualElement;
-            _uiRoot = root;
-            EnsureRootFillsPanel(root);
-            ApplyTheme(root);
-            ApplyAnchor(root);
-            AttachInteractionPanel(root);
-            ApplyFrameVisual(root);
-            ApplyScale(root);
+            gridController.ApplyLayout();
 
-            _service = new InventoryService(new InventoryGrid(config.Columns, config.Rows));
+            _service = new InventoryService(new InventoryGrid(gridController.Columns, gridController.Rows));
             CacheStartupItemIcons();
-            var themedSlotWidth = theme != null && theme.SlotWidthOverride > 0f ? theme.SlotWidthOverride : config.SlotWidth;
-            var themedSlotHeight = theme != null && theme.SlotHeightOverride > 0f ? theme.SlotHeightOverride : config.SlotHeight;
-            var resolvedSlotWidth = slotWidth > 0f ? slotWidth : themedSlotWidth;
-            var resolvedSlotHeight = slotHeight > 0f ? slotHeight : themedSlotHeight;
-            var slotSpacing = theme != null && theme.SlotSpacingOverride >= 0f
-                ? theme.SlotSpacingOverride
-                : Mathf.Max(0f, slotGap);
+
             _presenter = new InventoryPresenter(
                 _service,
-                root.Q<VisualElement>("inventory-grid"),
-                config.Columns,
-                resolvedSlotWidth,
-                resolvedSlotHeight,
-                slotSpacing,
-                theme != null && theme.UseSlotBaseColor,
-                theme != null ? theme.SlotBaseColor : Color.clear,
-                theme != null && theme.UseSlotBorderColor,
-                theme != null ? theme.SlotBorderColor : Color.clear,
+                gridRoot,
                 BuildViewModel,
                 ResolveIconTexture);
 
             _dragController = new InventoryDragController(
                 _service,
                 _presenter,
-                root,
-                root.Q<VisualElement>("drag-icon"),
-                config.HoldThresholdSeconds);
+                canvas,
+                dragIcon,
+                gridController.HoldThresholdSeconds);
 
             _tooltipController = new InventoryTooltipController(
                 _service,
                 _presenter,
-                root.Q<VisualElement>("tooltip-panel"),
-                root.Q<Label>("tooltip-title"),
-                root.Q<Label>("tooltip-description"),
+                canvas,
+                tooltipPanel,
+                tooltipTitle,
+                tooltipDescription,
                 BuildTooltip,
-                theme != null ? theme.TooltipOffset : new Vector2(16f, 16f));
+                new Vector2(16f, 16f));
 
-            _interactionPanelController = new InventoryInteractionPanelController(
-                _service,
-                root,
-                CreateDebugMaterialItem,
-                CreateDebugEquipmentItem);
+            if (showDebugTools)
+            {
+                CreateDebugToolsUi(
+                    out _debugToolsRoot,
+                    out var addMaterialButton,
+                    out var addEquipmentButton,
+                    out var removeLastButton,
+                    out var fillRandomButton,
+                    out var clearAllButton);
+
+                _interactionPanelController = new InventoryInteractionPanelController(
+                    _service,
+                    addMaterialButton,
+                    addEquipmentButton,
+                    removeLastButton,
+                    fillRandomButton,
+                    clearAllButton,
+                    CreateDebugMaterialItem,
+                    CreateDebugEquipmentItem);
+            }
 
             AddStartupItems();
         }
@@ -109,7 +129,7 @@ namespace InventorySystem.Bootstrap
         private void Update()
         {
             _dragController?.Tick();
-            TryApplyScaleIfChanged();
+            UpdateDebugToolsLayout();
 
             if (IsHotkeyPressedAddMaterial())
             {
@@ -133,7 +153,11 @@ namespace InventorySystem.Bootstrap
             _tooltipController?.Dispose();
             _dragController?.Dispose();
             _presenter?.Dispose();
-            _uiRoot = null;
+            if (_debugToolsRoot != null)
+            {
+                Destroy(_debugToolsRoot);
+                _debugToolsRoot = null;
+            }
         }
 
         private ItemViewModel BuildViewModel(IInventoryItem item)
@@ -289,316 +313,124 @@ namespace InventorySystem.Bootstrap
 #endif
         }
 
-        private void ApplyTheme(VisualElement root)
+        private static void EnsureEventSystem()
         {
-            if (root == null || theme == null || theme.StyleSheets == null)
+            if (FindAnyObjectByType<EventSystem>() != null)
             {
                 return;
             }
 
-            var sheets = theme.StyleSheets;
-            for (var i = 0; i < sheets.Length; i++)
-            {
-                var sheet = sheets[i];
-                if (sheet != null && !root.styleSheets.Contains(sheet))
-                {
-                    root.styleSheets.Add(sheet);
-                }
-            }
+            var eventSystemObject = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+            DontDestroyOnLoad(eventSystemObject);
         }
 
-        private void ApplyAnchor(VisualElement root)
+        private bool ValidateReferences()
         {
-            if (root == null)
+            if (canvas == null || gridRoot == null || dragIcon == null ||
+                tooltipPanel == null || tooltipTitle == null || tooltipDescription == null || gridController == null)
+            {
+                Debug.LogError("InventoryInstaller: assign all required editor UI references.");
+                return false;
+            }
+
+            return true;
+        }
+
+        private void CreateDebugToolsUi(
+            out GameObject rootObject,
+            out Button addMaterialButton,
+            out Button addEquipmentButton,
+            out Button removeLastButton,
+            out Button fillRandomButton,
+            out Button clearAllButton)
+        {
+            var debugPanelParent = canvas.transform as RectTransform;
+            var rootRect = CreatePanel("DebugToolsPanel", debugPanelParent, new Color(0.12f, 0.12f, 0.16f, 0.95f));
+            rootRect.anchorMin = new Vector2(1f, 1f);
+            rootRect.anchorMax = new Vector2(1f, 1f);
+            rootRect.pivot = new Vector2(1f, 1f);
+            rootRect.sizeDelta = new Vector2(190f, 255f);
+            _debugToolsRect = rootRect;
+            UpdateDebugToolsLayout();
+
+            addMaterialButton = CreateDebugButton("AddMaterial", rootRect, "Add Material", new Vector2(0f, -35f));
+            addEquipmentButton = CreateDebugButton("AddEquipment", rootRect, "Add Equipment", new Vector2(0f, -77f));
+            removeLastButton = CreateDebugButton("RemoveLast", rootRect, "Remove Last", new Vector2(0f, -119f));
+            fillRandomButton = CreateDebugButton("FillRandom", rootRect, "Fill Random", new Vector2(0f, -161f));
+            clearAllButton = CreateDebugButton("ClearAll", rootRect, "Clear All", new Vector2(0f, -203f));
+            rootObject = rootRect.gameObject;
+        }
+
+        private void UpdateDebugToolsLayout()
+        {
+            if (_debugToolsRect == null || canvas == null || canvas.transform is not RectTransform canvasRect)
             {
                 return;
             }
 
-            var inventoryRoot = root.Q<VisualElement>("inventory-root");
-            if (inventoryRoot == null)
+            var canvasSize = canvasRect.rect.size;
+            if (canvasSize.x <= 0f || canvasSize.y <= 0f)
             {
                 return;
             }
 
-            inventoryRoot.RemoveFromClassList("anchor-top-left");
-            inventoryRoot.RemoveFromClassList("anchor-top-center");
-            inventoryRoot.RemoveFromClassList("anchor-top-right");
-            inventoryRoot.RemoveFromClassList("anchor-middle-left");
-            inventoryRoot.RemoveFromClassList("anchor-center");
-            inventoryRoot.RemoveFromClassList("anchor-middle-right");
-            inventoryRoot.RemoveFromClassList("anchor-bottom-left");
-            inventoryRoot.RemoveFromClassList("anchor-bottom-center");
-            inventoryRoot.RemoveFromClassList("anchor-bottom-right");
+            // Keep panel close to the corner while scaling with resolution.
+            var edgePadding = Mathf.Clamp(Mathf.Min(canvasSize.x, canvasSize.y) * 0.005f, 2f, 10f);
+            _debugToolsRect.anchoredPosition = new Vector2(-edgePadding, -edgePadding);
 
-            inventoryRoot.AddToClassList(screenAnchor switch
-            {
-                InventoryScreenAnchor.TopLeft => "anchor-top-left",
-                InventoryScreenAnchor.TopCenter => "anchor-top-center",
-                InventoryScreenAnchor.TopRight => "anchor-top-right",
-                InventoryScreenAnchor.MiddleLeft => "anchor-middle-left",
-                InventoryScreenAnchor.Center => "anchor-center",
-                InventoryScreenAnchor.MiddleRight => "anchor-middle-right",
-                InventoryScreenAnchor.BottomLeft => "anchor-bottom-left",
-                InventoryScreenAnchor.BottomCenter => "anchor-bottom-center",
-                InventoryScreenAnchor.BottomRight => "anchor-bottom-right",
-                _ => "anchor-top-left"
-            });
+            var widthScale = canvasSize.x / 1920f;
+            var heightScale = canvasSize.y / 1080f;
+            var panelScale = Mathf.Clamp(Mathf.Min(widthScale, heightScale), 0.75f, 1.4f);
+            _debugToolsRect.localScale = new Vector3(panelScale, panelScale, 1f);
         }
 
-        private void AttachInteractionPanel(VisualElement root)
+        private static RectTransform CreatePanel(string name, RectTransform parent, Color color)
         {
-            if (root == null || inventoryToolsView == null)
+            var panelObject = new GameObject(name, typeof(RectTransform), typeof(Image));
+            panelObject.transform.SetParent(parent, false);
+            var rect = panelObject.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            var image = panelObject.GetComponent<Image>();
+            image.color = color;
+            return rect;
+        }
+
+        private static Button CreateDebugButton(string name, RectTransform parent, string label, Vector2 anchoredPosition)
+        {
+            var buttonObject = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+            buttonObject.transform.SetParent(parent, false);
+            var rect = buttonObject.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(0.5f, 1f);
+            rect.anchoredPosition = anchoredPosition;
+            rect.sizeDelta = new Vector2(-20f, 34f);
+
+            var image = buttonObject.GetComponent<Image>();
+            image.color = new Color(0.2f, 0.2f, 0.26f, 1f);
+            var button = buttonObject.GetComponent<Button>();
+
+            var labelObject = new GameObject(name + "Label", typeof(RectTransform));
+            labelObject.transform.SetParent(rect, false);
+            var labelRect = labelObject.GetComponent<RectTransform>();
+            labelRect.anchorMin = Vector2.zero;
+            labelRect.anchorMax = Vector2.one;
+            labelRect.offsetMin = Vector2.zero;
+            labelRect.offsetMax = Vector2.zero;
+            var tmp = labelObject.AddComponent<TextMeshProUGUI>();
+            if (TMP_Settings.defaultFontAsset != null)
             {
-                return;
+                tmp.font = TMP_Settings.defaultFontAsset;
             }
 
-            if (root.Q<VisualElement>("interaction-panel") != null)
-            {
-                return;
-            }
-
-            inventoryToolsView.CloneTree(root);
+            tmp.text = label;
+            tmp.fontSize = 14f;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.color = Color.white;
+            return button;
         }
 
-        private void ApplyFrameVisual(VisualElement root)
-        {
-            if (root == null)
-            {
-                return;
-            }
-
-            var frame = root.Q<VisualElement>("inventory-frame");
-            if (frame == null || theme == null || theme.FrameTexture == null)
-            {
-                return;
-            }
-
-            frame.style.backgroundImage = new StyleBackground(theme.FrameTexture);
-            frame.style.unityBackgroundScaleMode = theme.FrameScaleMode;
-            frame.style.unityBackgroundImageTintColor = theme.FrameTint;
-            frame.AddToClassList("frame-image-enabled");
-        }
-
-        private void ApplyScale(VisualElement root)
-        {
-            if (root == null)
-            {
-                return;
-            }
-
-            var safeFrameScale = ClampScale(frameScale);
-            var safeSlotsScale = ClampScale(slotsContainerScale);
-
-            var frame = root.Q<VisualElement>("inventory-frame");
-            if (frame != null)
-            {
-                frame.style.scale = new StyleScale(new Scale(safeFrameScale));
-            }
-
-            var grid = root.Q<VisualElement>("inventory-grid");
-            if (grid != null)
-            {
-                grid.style.scale = new StyleScale(new Scale(new Vector2(safeSlotsScale, safeSlotsScale)));
-            }
-
-            _appliedFrameScale = safeFrameScale;
-            _appliedSlotsScale = safeSlotsScale;
-        }
-
-        public void SetFrameScale(float value)
-        {
-            var safeValue = ClampScale(value);
-            frameScale = new Vector2(safeValue, safeValue);
-            ApplyScale(_uiRoot);
-        }
-
-        public void SetFrameScale(Vector2 value)
-        {
-            frameScale = ClampScale(value);
-            ApplyScale(_uiRoot);
-        }
-
-        public void SetSlotsContainerScale(float value)
-        {
-            slotsContainerScale = ClampScale(value);
-            ApplyScale(_uiRoot);
-        }
-
-        public void SetScales(float frameValue, float slotsValue)
-        {
-            var safeFrameValue = ClampScale(frameValue);
-            frameScale = new Vector2(safeFrameValue, safeFrameValue);
-            slotsContainerScale = ClampScale(slotsValue);
-            ApplyScale(_uiRoot);
-        }
-
-        private void TryApplyScaleIfChanged()
-        {
-            if (_uiRoot == null)
-            {
-                return;
-            }
-
-            var safeFrameScale = ClampScale(frameScale);
-            var safeSlotsScale = ClampScale(slotsContainerScale);
-            if (!Mathf.Approximately(_appliedFrameScale.x, safeFrameScale.x) ||
-                !Mathf.Approximately(_appliedFrameScale.y, safeFrameScale.y) ||
-                !Mathf.Approximately(_appliedSlotsScale, safeSlotsScale))
-            {
-                ApplyScale(_uiRoot);
-            }
-        }
-
-        private static float ClampScale(float value)
-        {
-            return Mathf.Clamp(value, 0.1f, 5f);
-        }
-
-        private static Vector2 ClampScale(Vector2 value)
-        {
-            return new Vector2(ClampScale(value.x), ClampScale(value.y));
-        }
-
-        private static void EnsureRootFillsPanel(VisualElement root)
-        {
-            if (root == null)
-            {
-                return;
-            }
-
-            root.style.position = Position.Absolute;
-            root.style.left = 0f;
-            root.style.top = 0f;
-            root.style.right = 0f;
-            root.style.bottom = 0f;
-        }
-    }
-
-    internal sealed class InventoryInteractionPanelController : IDisposable
-    {
-        private readonly InventoryService _service;
-        private readonly Func<IInventoryItem> _createMaterial;
-        private readonly Func<IInventoryItem> _createEquipment;
-        private readonly VisualElement _panelRoot;
-
-        private readonly Button _addMaterialButton;
-        private readonly Button _addEquipmentButton;
-        private readonly Button _removeLastButton;
-        private readonly Button _fillRandomButton;
-        private readonly Button _clearAllButton;
-
-        public InventoryInteractionPanelController(
-            InventoryService service,
-            VisualElement root,
-            Func<IInventoryItem> createMaterial,
-            Func<IInventoryItem> createEquipment)
-        {
-            _service = service ?? throw new ArgumentNullException(nameof(service));
-            _createMaterial = createMaterial ?? throw new ArgumentNullException(nameof(createMaterial));
-            _createEquipment = createEquipment ?? throw new ArgumentNullException(nameof(createEquipment));
-            _panelRoot = root.Q<VisualElement>("interaction-panel");
-
-            _addMaterialButton = root.Q<Button>("tool-add-material");
-            _addEquipmentButton = root.Q<Button>("tool-add-equipment");
-            _removeLastButton = root.Q<Button>("tool-remove-last");
-            _fillRandomButton = root.Q<Button>("tool-fill-random");
-            _clearAllButton = root.Q<Button>("tool-clear-all");
-
-            if (_panelRoot != null)
-            {
-                _panelRoot.pickingMode = PickingMode.Position;
-                _panelRoot.BringToFront();
-            }
-
-            HookButton(_addMaterialButton, AddMaterial, "tool-add-material");
-            HookButton(_addEquipmentButton, AddEquipment, "tool-add-equipment");
-            HookButton(_removeLastButton, RemoveLast, "tool-remove-last");
-            HookButton(_fillRandomButton, FillRandom, "tool-fill-random");
-            HookButton(_clearAllButton, ClearAll, "tool-clear-all");
-        }
-
-        public void Dispose()
-        {
-            if (_addMaterialButton != null) _addMaterialButton.clicked -= AddMaterial;
-            if (_addEquipmentButton != null) _addEquipmentButton.clicked -= AddEquipment;
-            if (_removeLastButton != null) _removeLastButton.clicked -= RemoveLast;
-            if (_fillRandomButton != null) _fillRandomButton.clicked -= FillRandom;
-            if (_clearAllButton != null) _clearAllButton.clicked -= ClearAll;
-        }
-
-        private void AddMaterial()
-        {
-            if (!_service.TryAddItem(_createMaterial(), out _))
-            {
-                Debug.Log("Inventory tools: add material failed (inventory full or blocked by rules).");
-            }
-        }
-
-        private void AddEquipment()
-        {
-            if (!_service.TryAddItem(_createEquipment(), out _))
-            {
-                Debug.Log("Inventory tools: add equipment failed (inventory full or blocked by rules).");
-            }
-        }
-
-        private void RemoveLast()
-        {
-            for (var i = _service.Grid.SlotCount - 1; i >= 0; i--)
-            {
-                if (_service.GetItem(i) != null)
-                {
-                    _service.RemoveItem(i);
-                    return;
-                }
-            }
-
-            Debug.Log("Inventory tools: remove last failed (inventory is already empty).");
-        }
-
-        private void FillRandom()
-        {
-            for (var i = 0; i < _service.Grid.SlotCount; i++)
-            {
-                if (_service.GetItem(i) != null)
-                {
-                    continue;
-                }
-
-                var item = UnityEngine.Random.value > 0.5f ? _createMaterial() : _createEquipment();
-                _service.TryAddItem(item, out _);
-            }
-        }
-
-        private void ClearAll()
-        {
-            var removedCount = 0;
-            for (var i = _service.Grid.SlotCount - 1; i >= 0; i--)
-            {
-                if (_service.GetItem(i) != null)
-                {
-                    _service.RemoveItem(i);
-                    removedCount++;
-                }
-            }
-
-            if (removedCount == 0)
-            {
-                Debug.Log("Inventory tools: clear all had no effect (inventory already empty).");
-                return;
-            }
-
-        }
-
-        private static void HookButton(Button button, Action handler, string buttonName)
-        {
-            if (button == null)
-            {
-                Debug.LogWarning($"Inventory tools: button '{buttonName}' was not found in the UI document.");
-                return;
-            }
-
-            button.clicked += handler;
-        }
     }
 }

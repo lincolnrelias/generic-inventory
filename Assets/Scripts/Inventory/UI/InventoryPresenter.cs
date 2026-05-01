@@ -2,39 +2,23 @@ using System;
 using System.Collections.Generic;
 using InventorySystem.Core;
 using UnityEngine;
-using UnityEngine.UIElements;
+using UnityEngine.UI;
 
 namespace InventorySystem.UI
 {
     public sealed class InventoryPresenter : IDisposable
     {
         private readonly InventoryService _service;
-        private readonly VisualElement _gridRoot;
+        private readonly RectTransform _gridRoot;
         private readonly Func<IInventoryItem, ItemViewModel> _viewModelBuilder;
         private readonly Func<IInventoryItem, Texture2D> _iconResolver;
-        private readonly float _slotWidth;
-        private readonly float _slotHeight;
-        private readonly float _slotSpacing;
-        private readonly bool _useSlotBaseColor;
-        private readonly Color _slotBaseColor;
-        private readonly bool _useSlotBorderColor;
-        private readonly Color _slotBorderColor;
-        private readonly int _columns;
-        private readonly List<VisualElement> _slotElements = new();
+        private readonly List<InventorySlotView> _slotElements = new();
 
-        public IReadOnlyList<VisualElement> SlotElements => _slotElements;
+        public IReadOnlyList<InventorySlotView> SlotElements => _slotElements;
 
         public InventoryPresenter(
             InventoryService service,
-            VisualElement gridRoot,
-            int columns,
-            float slotWidth,
-            float slotHeight,
-            float slotSpacing,
-            bool useSlotBaseColor,
-            Color slotBaseColor,
-            bool useSlotBorderColor,
-            Color slotBorderColor,
+            RectTransform gridRoot,
             Func<IInventoryItem, ItemViewModel> viewModelBuilder,
             Func<IInventoryItem, Texture2D> iconResolver = null)
         {
@@ -42,16 +26,6 @@ namespace InventorySystem.UI
             _gridRoot = gridRoot ?? throw new ArgumentNullException(nameof(gridRoot));
             _viewModelBuilder = viewModelBuilder ?? throw new ArgumentNullException(nameof(viewModelBuilder));
             _iconResolver = iconResolver;
-            _slotWidth = Mathf.Max(1f, slotWidth);
-            _slotHeight = Mathf.Max(1f, slotHeight);
-            _slotSpacing = Mathf.Max(0f, slotSpacing);
-            _useSlotBaseColor = useSlotBaseColor;
-            _slotBaseColor = slotBaseColor;
-            _useSlotBorderColor = useSlotBorderColor;
-            _slotBorderColor = slotBorderColor;
-            _columns = Mathf.Max(1, columns);
-
-            _gridRoot.style.width = (_slotWidth * columns) + ((columns - 1) * _slotSpacing);
             BuildSlots();
             Subscribe();
             RefreshAll();
@@ -73,39 +47,35 @@ namespace InventorySystem.UI
         private void BuildSlots()
         {
             _slotElements.Clear();
-            _gridRoot.Clear();
-
-            for (var i = 0; i < _service.Grid.SlotCount; i++)
+            for (var i = 0; i < _gridRoot.childCount; i++)
             {
-                var slot = new VisualElement();
-                slot.AddToClassList("inventory-slot");
-                slot.userData = i;
-                slot.style.width = _slotWidth;
-                slot.style.height = _slotHeight;
-                if (_useSlotBaseColor)
+                var child = _gridRoot.GetChild(i);
+                if (!child.TryGetComponent<InventorySlotView>(out var slot))
                 {
-                    slot.style.backgroundColor = _slotBaseColor;
+                    continue;
                 }
-                if (_useSlotBorderColor)
-                {
-                    slot.style.borderTopColor = _slotBorderColor;
-                    slot.style.borderRightColor = _slotBorderColor;
-                    slot.style.borderBottomColor = _slotBorderColor;
-                    slot.style.borderLeftColor = _slotBorderColor;
-                }
-                var x = i % _columns;
-                var y = i / _columns;
-                slot.style.marginRight = x < _columns - 1 ? _slotSpacing : 0f;
-                slot.style.marginBottom = y < _service.Grid.Rows - 1 ? _slotSpacing : 0f;
+
                 _slotElements.Add(slot);
-                _gridRoot.Add(slot);
+            }
+
+            if (_slotElements.Count != _service.Grid.SlotCount)
+            {
+                throw new InvalidOperationException(
+                    $"InventoryPresenter: expected {_service.Grid.SlotCount} slots in grid but found {_slotElements.Count}. " +
+                    "Populate slots in the grid before entering play mode.");
+            }
+
+            for (var i = 0; i < _slotElements.Count; i++)
+            {
+                var slot = _slotElements[i];
+                slot.Initialize(i);
             }
         }
 
         private void RefreshSlot(int slotIndex)
         {
             var slot = _slotElements[slotIndex];
-            slot.Clear();
+            slot.ClearSlotVisual();
 
             var item = _service.GetItem(slotIndex);
             if (item == null)
@@ -114,15 +84,10 @@ namespace InventorySystem.UI
             }
 
             var vm = _viewModelBuilder(item);
-            var icon = new VisualElement();
-            icon.AddToClassList("inventory-item-icon");
-            // Let the slot receive pointer/mouse events directly for drag start.
-            icon.pickingMode = PickingMode.Ignore;
             var hasIconTexture = false;
             var resolvedTexture = _iconResolver?.Invoke(item);
             if (resolvedTexture != null)
             {
-                icon.style.backgroundImage = new StyleBackground(resolvedTexture);
                 hasIconTexture = true;
             }
             else if (!string.IsNullOrWhiteSpace(vm.IconPath))
@@ -135,21 +100,12 @@ namespace InventorySystem.UI
 
                 if (texture != null)
                 {
-                    icon.style.backgroundImage = new StyleBackground(texture);
+                    resolvedTexture = texture;
                     hasIconTexture = true;
                 }
             }
 
-            icon.userData = slotIndex;
-            slot.Add(icon);
-
-            if (!hasIconTexture)
-            {
-                var fallbackLabel = new Label(GetFallbackToken(item));
-                fallbackLabel.AddToClassList("inventory-item-fallback");
-                fallbackLabel.pickingMode = PickingMode.Ignore;
-                icon.Add(fallbackLabel);
-            }
+            slot.SetIcon(hasIconTexture ? resolvedTexture : null, GetFallbackToken(item));
         }
 
         private static string GetFallbackToken(IInventoryItem item)
